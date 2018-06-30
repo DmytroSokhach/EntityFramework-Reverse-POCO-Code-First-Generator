@@ -4205,6 +4205,14 @@ SELECT  SERVERPROPERTY('Edition') AS Edition,
         return sb.ToString();
     };
 
+    public static readonly Func<StoredProcedure, string> WriteStoredProcFunctionOverloadCallWithParamModel = (sp) =>
+    {
+        var sb = new StringBuilder();
+        sb.Append("paramModel");
+        //sb.Append(", out procResult");
+        return sb.ToString();
+    };
+
     public static readonly Func<StoredProcedure, string> WriteStoredProcFunctionSqlAtParams = sp =>
     {
         var sb = new StringBuilder();
@@ -4240,7 +4248,7 @@ SELECT  SERVERPROPERTY('Edition') AS Edition,
                 + (p.Mode == StoredProcedureParameterMode.In
                     ? ", Value = " + (isGeography
                         ? $"Microsoft.SqlServer.Types.SqlGeography.Parse({p.NameHumanCase}.AsText())"
-                        : p.NameHumanCase + getValueOrDefault)
+                        : "paramModel." + p.NameHumanCase + getValueOrDefault)
                     : string.Empty)
                 + (p.MaxLength != 0 ? ", Size = " + p.MaxLength : string.Empty)
                 + ((p.Precision > 0 || p.Scale > 0) ? ", Precision = " + p.Precision + ", Scale = " + p.Scale : string.Empty)
@@ -4251,8 +4259,8 @@ SELECT  SERVERPROPERTY('Edition') AS Edition,
                 {
                     sb.AppendFormat(
                         isNullable
-                            ? "            if (!{0}.HasValue){1}                {0}Param.Value = System.DBNull.Value;{1}{1}"
-                            : "            if ({0}Param.Value == null){1}                {0}Param.Value = System.DBNull.Value;{1}{1}",
+                            ? "            if (!paramModel.{0}.HasValue){1}                {0}Param.Value = System.DBNull.Value;{1}{1}"
+                            : "            if (paramModel.{0} == null){1}                {0}Param.Value = System.DBNull.Value;{1}{1}",
                         p.NameHumanCase, Environment.NewLine);
                 }
         }

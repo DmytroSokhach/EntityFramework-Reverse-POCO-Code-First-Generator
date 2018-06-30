@@ -10,15 +10,15 @@ foreach (StoredProcedure sp in Settings.StoredProcs.Where(s => !s.IsTVF).OrderBy
         <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp)#>(<#=WriteStoredProcParameterModelName(sp) #> paramModel);
 <#  } else { #>
         <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp)#>(<#=WriteStoredProcParameterModelName(sp) #> paramModel);
-<#  }
-    if (Settings.IsSupportedFrameworkVersion("4.5"))
+<#  } #>
+    <#/* if (Settings.IsSupportedFrameworkVersion("4.5"))
     {
         if(StoredProcHasOutParams(sp) || sp.ReturnModels.Count == 0) { #>
         // <#=WriteStoredProcFunctionName(sp)#>Async cannot be created due to having out parameters, or is relying on the procedure result (<#=WriteStoredProcReturnType(sp)#>)
 <# } else { #>
         System.Threading.Tasks.Task<<#=WriteStoredProcReturnType(sp)#>> <#=WriteStoredProcFunctionName(sp)#>Async(<#=WriteStoredProcFunctionParams(sp, false) #>);
 <# } #>
-<# } #>
+<# } */#>
 
 <#
 }#>

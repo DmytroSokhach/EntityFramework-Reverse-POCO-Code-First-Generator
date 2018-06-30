@@ -7,18 +7,8 @@ foreach (var sp in Settings.StoredProcs.Where(s => !s.IsTVF).OrderBy(x => x.Name
     int returnModelsCount = sp.ReturnModels.Count;
     if (returnModelsCount > 0)
     {
-        if (returnModelsCount == 1)
-        { #>
+        #>
         public <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp) #>(<#=WriteStoredProcParameterModelName(sp) #> paramModel)
-        {
-            int procResult;
-            return <#= spExecName #>(<#=WriteStoredProcFunctionOverloadCall(sp) #>);
-        }
-
-        public <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp) #>(<#=WriteStoredProcParameterModelName(sp) #> paramModel)
-<#      } else { #>
-        public <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp) #>(<#=WriteStoredProcParameterModelName(sp) #> paramModel)
-<#      } #>
         {
 <#= WriteStoredProcFunctionDeclareSqlParameter(sp, true) #><#
         if (returnModelsCount == 1)
@@ -82,5 +72,5 @@ foreach (var sp in Settings.StoredProcs.Where(s => !s.IsTVF).OrderBy(x => x.Name
         }
 
 <# }#>
-<#@ include file="StoredProcedures/EF.Reverse.StoredProcedure.MethodDefinitions.Async.ttinclude" #>
+<#//@ include file="StoredProcedures/EF.Reverse.StoredProcedure.MethodDefinitions.Async.ttinclude" #>
 <#}#>
