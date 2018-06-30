@@ -1,0 +1,25 @@
+<# if (Settings.StoredProcs.Any()) { #>
+
+        // Stored Procedures (DbContext Declarations)
+<#      // Interface
+foreach (StoredProcedure sp in Settings.StoredProcs.Where(s => !s.IsTVF).OrderBy(x => x.NameHumanCase))
+{
+    int returnModelsCount = sp.ReturnModels.Count;
+    if (returnModelsCount == 1)
+    { #>
+        <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp)#>(<#=WriteStoredProcFunctionParams(sp, false) #>);
+        <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp)#>(<#=WriteStoredProcFunctionParams(sp, true) #>);
+<#  } else { #>
+        <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp)#>(<#=WriteStoredProcFunctionParams(sp, false) #>);
+<#  }
+    if (Settings.IsSupportedFrameworkVersion("4.5"))
+    {
+        if(StoredProcHasOutParams(sp) || sp.ReturnModels.Count == 0) { #>
+        // <#=WriteStoredProcFunctionName(sp)#>Async cannot be created due to having out parameters, or is relying on the procedure result (<#=WriteStoredProcReturnType(sp)#>)
+<# } else { #>
+        System.Threading.Tasks.Task<<#=WriteStoredProcReturnType(sp)#>> <#=WriteStoredProcFunctionName(sp)#>Async(<#=WriteStoredProcFunctionParams(sp, false) #>);
+<# } #>
+<# } #>
+
+<#
+}#>

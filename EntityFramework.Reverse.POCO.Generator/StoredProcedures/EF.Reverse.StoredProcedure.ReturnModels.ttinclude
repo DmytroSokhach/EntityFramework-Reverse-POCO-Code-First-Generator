@@ -1,0 +1,45 @@
+<#if(Settings.StoredProcs.Any() && Settings.ElementsToGenerate.HasFlag(Elements.Poco)){
+if(!Settings.GenerateSeparateFiles) { #>
+    #region Stored procedure return models
+
+<# } #>
+<#
+foreach(var sp in Settings.StoredProcs.Where(x => x.ReturnModels.Count > 0 && x.ReturnModels.Any(returnColumns => returnColumns.Any()) && !Settings.StoredProcedureReturnTypes.ContainsKey(x.NameHumanCase) && !Settings.StoredProcedureReturnTypes.ContainsKey(x.Name)).OrderBy(x => x.NameHumanCase))
+{
+    string spReturnClassName = WriteStoredProcReturnModelName(sp);
+#>
+<# fileManager.StartNewFile(spReturnClassName + Settings.FileExtension);#>
+<#if(Settings.IncludeCodeGeneratedAttribute){#>    <#=CodeGeneratedAttribute#>
+<#}#>
+    <#= Settings.ResultClassModifiers #> class <#= spReturnClassName #>
+    {
+<#
+var returnModelCount = sp.ReturnModels.Count;
+if(returnModelCount < 2)
+{
+    foreach (var returnColumn in sp.ReturnModels.First())
+    { #>
+        <#= WriteStoredProcReturnColumn(returnColumn) #>
+<#  }
+} else {
+    int model = 0;
+    foreach (var returnModel in sp.ReturnModels)
+    {
+        model++;#>
+        public class ResultSetModel<#= model #>
+        {
+<#      foreach (var returnColumn in returnModel)
+        { #>
+            <#= WriteStoredProcReturnColumn(returnColumn) #>
+<#      }#>
+        }
+        public System.Collections.Generic.List<ResultSetModel<#= model #>> ResultSet<#= model #>;
+
+<#  } #>
+<# } #>
+    }
+
+<# }
+if(Settings.StoredProcs.Any() && Settings.ElementsToGenerate.HasFlag(Elements.Poco) && !Settings.GenerateSeparateFiles) { #>
+    #endregion
+<# } } #>

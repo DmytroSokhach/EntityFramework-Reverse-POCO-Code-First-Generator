@@ -1,3 +1,5 @@
+<#@ assembly name="Microsoft.SqlServer.Smo, Version=14.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91" #>
+<#@ import namespace="Microsoft.SqlServer.Management.Smo" #>
 <#@ import namespace="System.Collections.Generic" #>
 <#
 fileManager.StartHeader();
@@ -110,33 +112,15 @@ else
         System.Data.Entity.DbSet Set(System.Type entityType);
         System.Data.Entity.DbSet<TEntity> Set<TEntity>() where TEntity : class;
         string ToString();
-<# if (Settings.StoredProcs.Any()) { #>
 
-        // Stored Procedures
-<#      // Interface
-foreach (StoredProcedure sp in Settings.StoredProcs.Where(s => !s.IsTVF).OrderBy(x => x.NameHumanCase))
-{
-    int returnModelsCount = sp.ReturnModels.Count;
-    if (returnModelsCount == 1)
-    { #>
-        <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp)#>(<#=WriteStoredProcFunctionParams(sp, false) #>);
-        <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp)#>(<#=WriteStoredProcFunctionParams(sp, true) #>);
-<#  } else { #>
-        <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp)#>(<#=WriteStoredProcFunctionParams(sp, false) #>);
-<#  }
-    if (Settings.IsSupportedFrameworkVersion("4.5"))
-    {
-        if(StoredProcHasOutParams(sp) || sp.ReturnModels.Count == 0) { #>
-        // <#=WriteStoredProcFunctionName(sp)#>Async cannot be created due to having out parameters, or is relying on the procedure result (<#=WriteStoredProcReturnType(sp)#>)
-<# } else { #>
-        System.Threading.Tasks.Task<<#=WriteStoredProcReturnType(sp)#>> <#=WriteStoredProcFunctionName(sp)#>Async(<#=WriteStoredProcFunctionParams(sp, false) #>);
-<# } #>
-<# } #>
 
-<#
-}
+<#    if (Settings.StoredProcs.Any())
+    {#>
+<#@ include file="StoredProcedures/EF.Reverse.StoredProcedure.InterfaceDeclarations.ttinclude" #>
+<#  }#>
 
-if (Settings.IncludeTableValuedFunctions)
+
+<#if (Settings.IncludeTableValuedFunctions)
 { #>
 
         // Table Valued Functions
@@ -329,148 +313,9 @@ foreach(var tbl in from t in Settings.Tables.Where(t => !t.IsMapping && t.HasPri
 <# if (Settings.StoredProcs.Any())
 { #>
 
-        // Stored Procedures
-<#      // Database context
-foreach (var sp in Settings.StoredProcs.Where(s => !s.IsTVF).OrderBy(x => x.NameHumanCase))
-{
-    string spReturnClassName = WriteStoredProcReturnModelName(sp);
-    string spExecName = WriteStoredProcFunctionName(sp);
-    int returnModelsCount = sp.ReturnModels.Count;
-    if (returnModelsCount > 0)
-    {
-        if (returnModelsCount == 1)
-        { #>
-        public <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp) #>(<#=WriteStoredProcFunctionParams(sp, false) #>)
-        {
-            int procResult;
-            return <#= spExecName #>(<#=WriteStoredProcFunctionOverloadCall(sp) #>);
-        }
+    <#@ include file="StoredProcedures/EF.Reverse.StoredProcedure.MethodDefinitions.ttinclude" #>
 
-        public <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp) #>(<#=WriteStoredProcFunctionParams(sp, true) #>)
-<#      } else { #>
-        public <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp) #>(<#=WriteStoredProcFunctionParams(sp, false) #>)
-<#      } #>
-        {
-<#= WriteStoredProcFunctionDeclareSqlParameter(sp, true) #><#
-        if (returnModelsCount == 1)
-        {
-            var exec = string.Format("EXEC @procResult = [{0}].[{1}] {2}", sp.Schema, sp.Name, WriteStoredProcFunctionSqlAtParams(sp)); #>
-            var procResultData = Database.SqlQuery<<#= spReturnClassName #>>("<#= exec #>", <#= WriteStoredProcFunctionSqlParameterAnonymousArray(sp, true) #>).ToList();
-<#= WriteStoredProcFunctionSetSqlParameters(sp, false) #>
-            procResult = (int) procResultParam.Value;
-<# }
-        else
-        {
-            var exec = string.Format("[{0}].[{1}]", sp.Schema, sp.Name); #>
-<#= WriteStoredProcFunctionSetSqlParameters(sp, false) #>
-            var procResultData = new <#= spReturnClassName #>();
-            var cmd = Database.Connection.CreateCommand();
-            cmd.CommandType = System.Data.CommandType.StoredProcedure;
-            cmd.CommandText = "<#= exec #>";
-<#          foreach (var p in sp.Parameters.OrderBy(x => x.Ordinal))
-{ #>
-            cmd.Parameters.Add(<#= WriteStoredProcSqlParameterName(p) #>);
-<# } #>
-
-            try
-            {
-                System.Data.Entity.Infrastructure.Interception.DbInterception.Dispatch.Connection.Open(Database.Connection, new System.Data.Entity.Infrastructure.Interception.DbInterceptionContext());
-                var reader = cmd.ExecuteReader();
-                var objectContext = ((System.Data.Entity.Infrastructure.IObjectContextAdapter) this).ObjectContext;
-
-<# int n = 0;
-            var returnModelCount = sp.ReturnModels.Count;
-            foreach (var returnModel in sp.ReturnModels)
-            {
-                n++; #>
-                procResultData.ResultSet<#= n #> = objectContext.Translate<<#= spReturnClassName #>.ResultSetModel<#= n #>>(reader).ToList();
-<#                  if (n < returnModelCount)
-{ #>
-                reader.NextResult();
-
-<# } #>
-<# } #>
-                reader.Close();
-<#= WriteStoredProcFunctionSetSqlParameters(sp, false) #>
-            }
-            finally
-            {
-                System.Data.Entity.Infrastructure.Interception.DbInterception.Dispatch.Connection.Close(Database.Connection, new System.Data.Entity.Infrastructure.Interception.DbInterceptionContext());
-            }
-<# } #>
-            return procResultData;
-        }
-
-<# }
-        else
-            { #>
-        public int <#= spExecName #>(<#=WriteStoredProcFunctionParams(sp, true) #>)
-        {
-<#= WriteStoredProcFunctionDeclareSqlParameter(sp, true) #>
-            Database.ExecuteSqlCommand(System.Data.Entity.TransactionalBehavior.DoNotEnsureTransaction, "EXEC @procResult = [<#=sp.Schema #>].[<#= sp.Name #>] <#= WriteStoredProcFunctionSqlAtParams(sp) #>", <#= WriteStoredProcFunctionSqlParameterAnonymousArray(sp, true) #>);
-<#= WriteStoredProcFunctionSetSqlParameters(sp, false) #>
-            return (int) procResultParam.Value;
-        }
-
-<# }
-    // Async
-    if (Settings.IsSupportedFrameworkVersion("4.5") && !StoredProcHasOutParams(sp) && returnModelsCount > 0)
-    {#>
-        public async System.Threading.Tasks.Task<<#=WriteStoredProcReturnType(sp) #>> <#=WriteStoredProcFunctionName(sp) #>Async(<#=WriteStoredProcFunctionParams(sp, false) #>)
-        {
-<#= WriteStoredProcFunctionDeclareSqlParameter(sp, false) #><#
-        if (returnModelsCount == 1)
-        {
-            var parameters = WriteStoredProcFunctionSqlParameterAnonymousArray(sp, false);
-            if (!string.IsNullOrWhiteSpace(parameters))
-                parameters = ", " + parameters;
-            var exec = string.Format("EXEC [{0}].[{1}] {2}", sp.Schema, sp.Name, WriteStoredProcFunctionSqlAtParams(sp)); #>
-            var procResultData = await Database.SqlQuery<<#= spReturnClassName #>>("<#= exec #>"<#= parameters #>).ToListAsync();
-<#= WriteStoredProcFunctionSetSqlParameters(sp, false) #>
-<# }
-        else
-        {
-            var exec = string.Format("[{0}].[{1}]", sp.Schema, sp.Name); #>
-<#= WriteStoredProcFunctionSetSqlParameters(sp, false) #>
-            var procResultData = new <#= spReturnClassName #>();
-            var cmd = Database.Connection.CreateCommand();
-            cmd.CommandType = System.Data.CommandType.StoredProcedure;
-            cmd.CommandText = "<#= exec #>";
-<#          foreach (var p in sp.Parameters.OrderBy(x => x.Ordinal))
-{ #>
-            cmd.Parameters.Add(<#= WriteStoredProcSqlParameterName(p) #>);
-<# } #>
-
-            try
-            {
-                await System.Data.Entity.Infrastructure.Interception.DbInterception.Dispatch.Connection.OpenAsync(Database.Connection, new System.Data.Entity.Infrastructure.Interception.DbInterceptionContext(), new System.Threading.CancellationToken()).ConfigureAwait(false);
-                var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
-                var objectContext = ((System.Data.Entity.Infrastructure.IObjectContextAdapter) this).ObjectContext;
-
-<# int n = 0;
-            var returnModelCount = sp.ReturnModels.Count;
-            foreach (var returnModel in sp.ReturnModels)
-            {
-                n++; #>
-                procResultData.ResultSet<#= n #> = objectContext.Translate<<#= spReturnClassName #>.ResultSetModel<#= n #>>(reader).ToList();
-<#                  if (n < returnModelCount)
-{ #>
-                await reader.NextResultAsync().ConfigureAwait(false);
-
-<# } #>
-<# } #>
-            }
-            finally
-            {
-                System.Data.Entity.Infrastructure.Interception.DbInterception.Dispatch.Connection.Close(Database.Connection, new System.Data.Entity.Infrastructure.Interception.DbInterceptionContext());
-            }
-<# } #>
-            return procResultData;
-        }
-
-<# }
-}
-if (Settings.IncludeTableValuedFunctions)
+<#if (Settings.IncludeTableValuedFunctions)
 { #>
         // Table Valued Functions
 <#
@@ -693,6 +538,7 @@ if (Settings.IncludeTableValuedFunctions)
 <#fileManager.StartNewFile("FakeDbSet" + Settings.FileExtension); #>
 <# if(Settings.GenerateSeparateFiles) { #>
     using System.Linq;
+    using Dapper;
 <# } #>
 
     // ************************************************************************
@@ -1160,53 +1006,11 @@ foreach (string s in tbl.MappingConfiguration)
 if(Settings.ElementsToGenerate.HasFlag(Elements.PocoConfiguration) && !Settings.GenerateSeparateFiles) { #>
     #endregion
 
-<# }
-if(Settings.StoredProcs.Any() && Settings.ElementsToGenerate.HasFlag(Elements.Poco)){
-if(!Settings.GenerateSeparateFiles) { #>
-    #region Stored procedure return models
-
 <# } #>
-<#
-foreach(var sp in Settings.StoredProcs.Where(x => x.ReturnModels.Count > 0 && x.ReturnModels.Any(returnColumns => returnColumns.Any()) && !Settings.StoredProcedureReturnTypes.ContainsKey(x.NameHumanCase) && !Settings.StoredProcedureReturnTypes.ContainsKey(x.Name)).OrderBy(x => x.NameHumanCase))
-{
-    string spReturnClassName = WriteStoredProcReturnModelName(sp);
-#>
-<# fileManager.StartNewFile(spReturnClassName + Settings.FileExtension);#>
-<#if(Settings.IncludeCodeGeneratedAttribute){#>    <#=CodeGeneratedAttribute#>
-<#}#>
-    <#= Settings.ResultClassModifiers #> class <#= spReturnClassName #>
-    {
-<#
-var returnModelCount = sp.ReturnModels.Count;
-if(returnModelCount < 2)
-{
-    foreach (var returnColumn in sp.ReturnModels.First())
-    { #>
-        <#= WriteStoredProcReturnColumn(returnColumn) #>
-<#  }
-} else {
-    int model = 0;
-    foreach (var returnModel in sp.ReturnModels)
-    {
-        model++;#>
-        public class ResultSetModel<#= model #>
-        {
-<#      foreach (var returnColumn in returnModel)
-        { #>
-            <#= WriteStoredProcReturnColumn(returnColumn) #>
-<#      }#>
-        }
-        public System.Collections.Generic.List<ResultSetModel<#= model #>> ResultSet<#= model #>;
-
-<#  } #>
-<# } #>
-    }
-
-<# }
-if(Settings.StoredProcs.Any() && Settings.ElementsToGenerate.HasFlag(Elements.Poco) && !Settings.GenerateSeparateFiles) { #>
-    #endregion
-
-<# } } #>
+<#if (Settings.StoredProcs.Count > 0)
+    {#>
+<#@ include file="StoredProcedures/EF.Reverse.StoredProcedure.ReturnModels.ttinclude" #>
+<#  }#>
 <# fileManager.StartFooter(); #>
 }
 // </auto-generated>
