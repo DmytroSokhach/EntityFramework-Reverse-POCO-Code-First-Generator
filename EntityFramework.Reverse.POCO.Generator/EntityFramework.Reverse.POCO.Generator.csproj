@@ -95,6 +95,7 @@
     <None Include="EF.Reverse.POCO.Core.ttinclude" />
     <None Include="EF.Reverse.POCO.ttinclude" />
     <None Include="StoredProcedures\EF.Reverse.StoredProcedure.InterfaceDeclarations.ttinclude" />
+    <None Include="StoredProcedures\EF.Reverse.StoredProcedure.MethodDefinitions.Async.ttinclude" />
     <None Include="StoredProcedures\EF.Reverse.StoredProcedure.MethodDefinitions.ttinclude" />
     <None Include="StoredProcedures\EF.Reverse.StoredProcedure.ParameterModels.ttinclude" />
     <None Include="StoredProcedures\EF.Reverse.StoredProcedure.ReturnModels.ttinclude" />

@@ -4275,7 +4275,7 @@ SELECT  SERVERPROPERTY('Edition') AS Edition,
         return sb.ToString();
     };
 
-    public static readonly Func<StoredProcedure, bool, string> WriteStoredProcFunctionSqlParameterAnonymousArray = (sp, includeProcResultParam) =>
+    public static readonly Func<string, StoredProcedure, bool, string> WriteStoredProcFunctionSqlParameterAnonymousArrayWithPrefix = (classPrefix, sp, includeProcResultParam) =>
     {
         var sb = new StringBuilder();
         bool hasParam = false;
@@ -4284,11 +4284,17 @@ SELECT  SERVERPROPERTY('Edition') AS Edition,
             sb.Append(string.Format("{0}Param, ", p.NameHumanCase));
             hasParam = true;
         }
+
         if (includeProcResultParam)
             sb.Append("procResultParam");
-        else if(hasParam)
+        else if (hasParam)
             sb.Remove(sb.Length - 2, 2);
         return sb.ToString();
+    };
+
+    public static readonly Func<StoredProcedure, bool, string> WriteStoredProcFunctionSqlParameterAnonymousArray = (sp, includeProcResultParam) =>
+    {
+        return WriteStoredProcFunctionSqlParameterAnonymousArrayWithPrefix(string.Empty, sp, includeProcResultParam);
     };
 
     public static readonly Func<StoredProcedure, string> WriteTableValuedFunctionSqlParameterAnonymousArray = sp =>
@@ -4342,7 +4348,36 @@ SELECT  SERVERPROPERTY('Edition') AS Edition,
         return name;
     };
 
+    public static readonly Func<StoredProcedure, string> WriteStoredProcParameterModelName = sp =>
+    {
+        if (Settings.StoredProcedureReturnTypes.ContainsKey(sp.NameHumanCase))
+            return Settings.StoredProcedureReturnTypes[sp.NameHumanCase];
+        if (Settings.StoredProcedureReturnTypes.ContainsKey(sp.Name))
+            return Settings.StoredProcedureReturnTypes[sp.Name];
+
+        var name = string.Format("{0}ParameterModel", sp.NameHumanCase);
+        //if (Settings.StoredProcedureReturnModelRename != null)
+        //{
+            //var customName = Settings.StoredProcedureReturnModelRename(name, sp);
+            //if (!string.IsNullOrEmpty(customName))
+                //name = customName;
+        //}
+
+        return name;
+    };
+
     public static readonly Func<DataColumn, string> WriteStoredProcReturnColumn = col =>
+    {
+        var columnName = ReservedKeywords.Contains(col.ColumnName) ? "@" + col.ColumnName : col.ColumnName;
+
+        return string.Format("public {0} {1} {{ get; set; }}",
+            StoredProcedure.WrapTypeIfNullable(
+                (col.DataType.Name.Equals("SqlHierarchyId") ? "Microsoft.SqlServer.Types." : col.DataType.Namespace + ".") +
+                col.DataType.Name, col),
+            columnName);
+    };
+
+    public static readonly Func<DataColumn, string> WriteStoredProcParameter = col =>
     {
         var columnName = ReservedKeywords.Contains(col.ColumnName) ? "@" + col.ColumnName : col.ColumnName;
 
@@ -4360,6 +4395,16 @@ SELECT  SERVERPROPERTY('Edition') AS Edition,
             return "int";
 
         var spReturnClassName = WriteStoredProcReturnModelName(sp);
+        return (returnModelCount == 1) ? string.Format("System.Collections.Generic.List<{0}>", spReturnClassName) : spReturnClassName;
+    };
+
+    public static readonly Func<StoredProcedure, string> WriteStoredProcParameterType = (sp) =>
+    {
+        var returnModelCount = sp.ReturnModels.Count;
+        if (returnModelCount == 0)
+            return "int";
+
+        var spReturnClassName = WriteStoredProcParameterModelName(sp);
         return (returnModelCount == 1) ? string.Format("System.Collections.Generic.List<{0}>", spReturnClassName) : spReturnClassName;
     };
 

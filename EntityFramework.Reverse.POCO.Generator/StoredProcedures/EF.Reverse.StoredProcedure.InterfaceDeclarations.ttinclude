@@ -7,10 +7,9 @@ foreach (StoredProcedure sp in Settings.StoredProcs.Where(s => !s.IsTVF).OrderBy
     int returnModelsCount = sp.ReturnModels.Count;
     if (returnModelsCount == 1)
     { #>
-        <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp)#>(<#=WriteStoredProcFunctionParams(sp, false) #>);
-        <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp)#>(<#=WriteStoredProcFunctionParams(sp, true) #>);
+        <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp)#>(<#=WriteStoredProcParameterModelName(sp) #> paramModel);
 <#  } else { #>
-        <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp)#>(<#=WriteStoredProcFunctionParams(sp, false) #>);
+        <#=WriteStoredProcReturnType(sp) #> <#=WriteStoredProcFunctionName(sp)#>(<#=WriteStoredProcParameterModelName(sp) #> paramModel);
 <#  }
     if (Settings.IsSupportedFrameworkVersion("4.5"))
     {

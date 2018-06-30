@@ -1,15 +1,20 @@
-<#if(Settings.StoredProcs.Any() && Settings.ElementsToGenerate.HasFlag(Elements.Poco)){
-if(!Settings.GenerateSeparateFiles) { #>
+<#@ import namespace="System.Text" #>
+<#
+if(Settings.StoredProcs.Any() && Settings.ElementsToGenerate.HasFlag(Elements.Poco))
+{
+if(!Settings.GenerateSeparateFiles) 
+{ #>
     #region Stored procedure parameter models
 
 <# } #>
+
 <#
 foreach(var sp in Settings.StoredProcs.Where(x => x.ReturnModels.Count > 0 &&
  x.ReturnModels.Any(returnColumns => returnColumns.Any()) &&
  !Settings.StoredProcedureReturnTypes.ContainsKey(x.NameHumanCase) &&
  !Settings.StoredProcedureReturnTypes.ContainsKey(x.Name)).OrderBy(x => x.NameHumanCase))
 {
-    string spReturnClassName = WriteStoredProcReturnModelName(sp);
+    string spReturnClassName = WriteStoredProcParameterModelName(sp);
 #>
 <# fileManager.StartNewFile(spReturnClassName + Settings.FileExtension);#>
 <#if(Settings.IncludeCodeGeneratedAttribute){#>    <#=CodeGeneratedAttribute#>
@@ -17,31 +22,21 @@ foreach(var sp in Settings.StoredProcs.Where(x => x.ReturnModels.Count > 0 &&
     <#= Settings.ResultClassModifiers #> class <#= spReturnClassName #>
     {
 <#
-var returnModelCount = sp.ReturnModels.Count;
-if(returnModelCount < 2)
-{
-    foreach (var returnColumn in sp.ReturnModels.First())
-    { #>
-        <#= WriteStoredProcReturnColumn(returnColumn) #>
-<#  }
-} else {
-    int model = 0;
-    foreach (var returnModel in sp.ReturnModels)
+    var sb = new StringBuilder();
+    int n = 1;
+    int paramCount = sp.Parameters.Count;
+    foreach (var p in sp.Parameters.OrderBy(x => x.Ordinal))
     {
-        model++;#>
-        public class ResultSetModel<#= model #>
-        {
-<#      foreach (var returnColumn in returnModel)
-        { #>
-            <#= WriteStoredProcReturnColumn(returnColumn) #>
-<#      }#>
-        }
-        public System.Collections.Generic.List<ResultSetModel<#= model #>> ResultSet<#= model #>;
-
-<#  } #>
-<# } #>
-    }
-
+        sb.AppendFormat("public {0}{1}{2} {3}",
+            p.Mode == StoredProcedureParameterMode.In ? "" : "out ",
+            p.PropertyType,
+            NotNullable.Contains(p.PropertyType.ToLower()) ? string.Empty : "?",
+            p.NameHumanCase);
+        sb.AppendLine(" { get; set; }");
+    }#>
+<#= sb.ToString() #>
+public int procResult { get; set; }
+}
 <# }
 if(Settings.StoredProcs.Any() && Settings.ElementsToGenerate.HasFlag(Elements.Poco) && !Settings.GenerateSeparateFiles) { #>
     #endregion

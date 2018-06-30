@@ -1009,6 +1009,11 @@ if(Settings.ElementsToGenerate.HasFlag(Elements.PocoConfiguration) && !Settings.
 <# } #>
 <#if (Settings.StoredProcs.Count > 0)
     {#>
+<#@ include file="StoredProcedures/EF.Reverse.StoredProcedure.ParameterModels.ttinclude" #>
+<#  }#>
+
+<#if (Settings.StoredProcs.Count > 0)
+    {#>
 <#@ include file="StoredProcedures/EF.Reverse.StoredProcedure.ReturnModels.ttinclude" #>
 <#  }#>
 <# fileManager.StartFooter(); #>
